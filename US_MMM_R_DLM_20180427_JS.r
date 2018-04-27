@@ -13,13 +13,13 @@ library(reshape)
 library(data.table)
 library(doSNOW)
 
-basepath = "C:/Users/jsohn/Documents/GitRepo/R-DLM/"
-data=read.xlsx(paste0(basepath, 'model2-data.xlsx'), 'orig_vars2', startRow=4)
+basepath = "C:/Users/jsohn/Documents/GitRepo/R-DLM-Working/"
+data=read.xlsx(paste0(basepath, 'model2data.xlsx'), 'Sheet1', startRow=1)
 data_orig <- data
 data <- data_orig
-colnames(data)=c('date', 'Sales', 'Price', 'MonsterLaunch', 'Promo_Display', 'Promo_Feature_Monster', 'ACV', 'TPR', 
+colnames(data)=c('date', 'Sales', 'Price', 'Promo_Display', 'Promo_Feature_Monster', 'ACV', 'TPR', 
                  'TV_Total', 'WebTV_Total', 'Display_Total','fb_posts','twitter_int','youtube_views', 'DotCom'
-                 , 'Sampling', 'PaidSocial_Total', 'Search_total', 'RBLaunch', 'CSI_Monster', 'Unemployment', 'seas', 'Intercept')
+                 , 'RBLaunch', 'CSI_Monster', 'Unemployment', 'seas', 'Intercept')
 cnames <- colnames(data)
 
 data <- data[4:nrow(data),]
@@ -44,7 +44,7 @@ salesdata <- as.data.frame(data$Sales)
 data['mean_sales']=rep(mean(data$Sales),nrow(data))
 data$Sales_dep <- data$Sales/data$mean_sales
 data$Price=data$Price/mean(data$Price)
-data$MonsterLaunch=data$MonsterLaunch/mean(data$MonsterLaunch)
+# data$MonsterLaunch=data$MonsterLaunch/mean(data$MonsterLaunch)
 data$Promo_Display=data$Promo_Display/mean(data$Promo_Display)
 data$Promo_Feature_Monster=data$Promo_Feature_Monster/mean(data$Promo_Feature_Monster)
 data$ACV=data$ACV/mean(data$ACV)
@@ -56,9 +56,9 @@ data$fb_posts=data$fb_posts/mean(data$fb_posts)
 data$twitter_int=data$twitter_int/mean(data$twitter_int)
 data$youtube_views=data$youtube_views/mean(data$youtube_views)
 data$DotCom=data$DotCom/mean(data$DotCom)
-data$PaidSocial_Total=data$PaidSocial_Total/mean(data$PaidSocial_Total)
-data$Search_total=data$Search_total/mean(data$Search_total)
-data$RBLaunch=data$RBLaunch/mean(data$RBLaunch)
+# data$PaidSocial_Total=data$PaidSocial_Total/mean(data$PaidSocial_Total)
+# data$Search_total=data$Search_total/mean(data$Search_total)
+# data$RBLaunch=data$RBLaunch/mean(data$RBLaunch)
 data$CSI_Monster=data$CSI_Monster/mean(data$CSI_Monster)
 data$Unemployment=data$Unemployment/mean(data$Unemployment)
 
@@ -70,9 +70,9 @@ start.date.c="2014-01-26"
 end.date.c="2017-12-31" 
 is.output=F
 is.graph=T
-varlist=c('Price', 'MonsterLaunch', 'Promo_Display', 'Promo_Feature_Monster', 'ACV', 'TPR', 
+varlist=c('Price', 'Promo_Display', 'Promo_Feature_Monster', 'ACV', 'TPR', 
           'TV_Total', 'WebTV_Total', 'Display_Total','fb_posts','twitter_int','youtube_views', 'DotCom'
-          , 'Sampling', 'PaidSocial_Total', 'Search_total', 'RBLaunch', 'CSI_Monster', 'Unemployment', 'seas', 'Intercept')
+          , 'RBLaunch', 'CSI_Monster', 'Unemployment', 'seas', 'Intercept')
 # varlist = colnames(data)[-c(1,2)]
 
 # Put Product launch dummy variables when applicable.
@@ -96,7 +96,8 @@ var_slope='est'
 per_sea=52  # for dlmModTrig
 ord_sea=1 # for dlmModTrig
 var_sea='est'
-optim.method="L-BFGS-B" 
+# optim.method="L-BFGS-B"
+optim.method="BFGS" 
 optim.lb=-Inf 
 optim.ub=Inf 
 
@@ -160,7 +161,7 @@ if(length(varlist)==0) iter=1 # varlist check
 
 # DLM
 for (loop in 1:iter){
-  print(loop)
+  print(paste("********** Round",loop,", Time: ",format(Sys.time(), "%H:%M:%S"),"**********",sep=" "))
   if(length(varlist)!=0) coef.table=matrix(0,nr=length(varlist),nc=1,dimnames=list(varlist,1))  
   
   comb <- function(x, ...) {
@@ -193,7 +194,8 @@ for (loop in 1:iter){
                      }
                      if (length(varlist) !=0){
                        if(var_coef=="est"){
-                         reg=dlmModReg(x[[i]],addInt=F,dV=exp(p[1+n]),dW = exp( p[ 2+n : (length( x[[i]] ) + n + 1) ] ))
+                         reg=dlmModReg(x[[i]],addInt=F,dV=exp(p[1+n]),dW = exp( p[ (2+n) : length(p) ] ))
+                         # reg=dlmModReg(x[[i]],addInt=F,dV=exp(p[1+n]),dW = exp( p[ 5 : 25 ] ))
                        }else{
                          reg=dlmModReg(x[[i]],addInt=F,dV=0,dW = rep(var_coef, ncol(x[[i]])))
                        }
@@ -282,6 +284,15 @@ predict=vector("list",1)
 decomp=vector("list",1)
 res=vector("list",1)
 
+flevel=vector("list",1)
+fslope=vector("list",1)
+ftrend=vector("list",1)
+fsea=vector("list",1)
+freg=vector("list",1)
+fpredict=vector("list",1)
+fdecomp=vector("list",1)
+fres=vector("list",1)
+
 if (level_type==2){
   
   if(length(varlist)!=0){
@@ -323,6 +334,18 @@ if (level_type==2){
                            predict=predict[[1]],upper=predict[[1]]+qnorm(CI.level+(1-CI.level)/2)*sqrt(sum(res[[1]]^2)/(length(yreal[[1]])-nrow(W(mod[[1]])))),
                            lower=predict[[1]]-qnorm(CI.level+(1-CI.level)/2)*sqrt(sum(res[[1]]^2)/(length(yreal[[1]])-nrow(W(mod[[1]])))),residual=res[[1]],
                            level=trend[[1]],season=sea[[1]],reg=apply(reg[[1]],1,sum),reg[[1]])
+    
+    flevel[[1]]=dropFirst(f[[1]]$m[,ncol(x[[1]])+1])*ymean[[1]]
+    ftrend[[1]]=flevel[[1]]
+    fsea[[1]]=apply(dropFirst(f[[1]]$m[,(ncol(x[[1]])+2):ncol(f[[1]]$m)]),1,sum)*ymean[[1]]
+    freg[[1]]=x[[1]]*dropFirst(f[[1]]$m[,1:sum(coef.check.pre[,1])])*ymean[[1]]
+    fpredict[[1]]=(apply(freg[[1]],1,sum)+ftrend[[1]]+fsea[[1]])
+    fres[[1]]=yreal[[1]]-fpredict[[1]]
+    fdecomp[[1]]=data.frame(date=date,market=rep(1,length(date)),actual=yreal[[1]],
+                           predict=fpredict[[1]],upper=fpredict[[1]]+qnorm(CI.level+(1-CI.level)/2)*sqrt(sum(fres[[1]]^2)/(length(yreal[[1]])-nrow(W(mod[[1]])))),
+                           lower=fpredict[[1]]-qnorm(CI.level+(1-CI.level)/2)*sqrt(sum(fres[[1]]^2)/(length(yreal[[1]])-nrow(W(mod[[1]])))),residual=fres[[1]],
+                           level=ftrend[[1]],season=fsea[[1]],reg=apply(freg[[1]],1,sum),freg[[1]])
+    
   }else{
     level[[1]]=dropFirst(s[[1]]$s[,1])*ymean[[1]]
     trend[[1]]=level[[1]]
@@ -402,7 +425,7 @@ contrib_data=contrib_data[-1,]
 plot_level_range=c(0,max(decomp.agg$actual)*1.3)
 opar=par(no.readonly=TRUE)
 par(mfrow=c(3,1))
-plot(decomp.agg$date,decomp.agg$reg,type="l",lwd=2,main="Regresion")
+plot(decomp.agg$date,decomp.agg$reg-int_pred,type="l",lwd=2,main="Regresion")
 plot(decomp.agg$date,decomp.agg$season,type="l",lwd=2,main="Seasonality")
 plot(decomp.agg$date,decomp.agg$level,type="l",lwd=2,main="Level")
 par(mfrow=c(2,2))
@@ -422,11 +445,11 @@ lines(decomp.agg$date,decomp.agg$upper,col="blue",lty=3,lwd=1)
 lines(decomp.agg$date,decomp.agg$lower,col="blue",lty=3,lwd=1)
 plot(decomp.agg$date,decomp.agg$actual,type="l",lwd=2,main="Level+Reg")
 lines(decomp.agg$date,dlevel_reg,col="green",lty=1,lwd=2)
-plot(decomp.agg$date,decomp.agg$actual,type="l",main="Level",lwd=2,ylim=plot_level_range)
+plot(decomp.agg$date,decomp.agg$actual,type="l",main="Level",lwd=2,ylim=plot_level_range2)
 lines(decomp.agg$date,decomp.agg$level,col="dark blue",lty=1,lwd=2)
 par(opar)
 
-
+plot(decomp.agg$date,decomp.agg$level,type="l",main="Level",lwd=2)
 
 
 
